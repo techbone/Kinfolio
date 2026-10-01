@@ -1,0 +1,13 @@
+{
+  "chainId": 46630,
+  "network": "Robinhood Chain Testnet",
+  "profile": "demo",
+  "factory": "0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F",
+  "implementation": "0x821D8133adfd1fc9aE2e90195C5Ac0E4bdbEdaD7",
+  "cashAsset": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+  "minInactivitySeconds": 60,
+  "minChallengeSeconds": 60,
+  "deployer": "0xD03486e98472502e32F73cE826751d2155eE1561",
+  "deployTx": "0xa345d4dc783ee8bba33fbb4fb51b77eba954dd5d308701d79090f1404c789ae5",
+  "block": 127101512
+}
