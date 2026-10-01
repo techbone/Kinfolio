@@ -33,3 +33,12 @@ robinhood = { key = "blockscout", chain = 4663, url = "https://robinhoodchain.bl
 
 [fmt]
 line_length = 100
+
+[lint]
+# Intentional patterns, each justified in docs/SECURITY.md:
+#   block-timestamp        time is the product; seconds of drift are irrelevant at day scale
+#   require-revert-in-loop config validation must reject the whole input
+#   calls-loop             loops are bounded (16 assets) and isolated per asset via try/catch
+#   reentrancy-events      every token-moving function is nonReentrant; the only other
+#                          callee is the immutable factory
+exclude_lints = ["block-timestamp", "require-revert-in-loop", "calls-loop", "reentrancy-events"]
