@@ -39,6 +39,13 @@ contract KinfolioTrustLifecycleTest is KinfolioBase {
         assertEq(trust.coverage(address(tsla)), TSLA_BALANCE);
     }
 
+    function test_Views_NothingVestsBeforeRelease() public {
+        _startClaim(trust);
+        vm.warp(t0 + 20 * 365 days);
+        assertEq(trust.vested(0, address(tsla)), 0);
+        assertEq(trust.claimable(0, address(tsla)), 0);
+    }
+
     // ─── Check-in and claim timing ──────────────────────────────────────────
 
     function test_CheckIn_ResetsDeadline() public {

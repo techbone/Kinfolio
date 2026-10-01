@@ -76,6 +76,14 @@ contract KinfolioFactoryTest is KinfolioBase {
         rogue.initialize(stranger, config);
     }
 
+    function test_RevertWhen_FactoryInitializesZeroOwner() public {
+        KinfolioTrust rogue = KinfolioTrust(Clones.clone(factory.IMPLEMENTATION()));
+        IKinfolioTrust.TrustConfig memory config = _config(_assets(), _familyGrants());
+        vm.prank(address(factory));
+        vm.expectRevert(IKinfolioTrust.ZeroAddress.selector);
+        rogue.initialize(address(0), config);
+    }
+
     function test_RevertWhen_NonTrustWritesIndex() public {
         address[] memory list = new address[](1);
         list[0] = stranger;
@@ -91,6 +99,16 @@ contract KinfolioFactoryTest is KinfolioBase {
         assertEq(impl.MIN_INACTIVITY(), MIN_INACTIVITY);
         assertEq(impl.MIN_CHALLENGE(), MIN_CHALLENGE);
         assertEq(impl.owner(), address(0));
+    }
+
+    function test_RevertWhen_ImplementationDeployedWithBadProfile() public {
+        address f = address(factory);
+        vm.expectRevert(IKinfolioTrust.ZeroAddress.selector);
+        new KinfolioTrust(address(0), address(usdg), MIN_INACTIVITY, MIN_CHALLENGE);
+        vm.expectRevert(IKinfolioTrust.InvalidPeriods.selector);
+        new KinfolioTrust(f, address(usdg), MIN_INACTIVITY, 0);
+        vm.expectRevert(IKinfolioTrust.InvalidPeriods.selector);
+        new KinfolioTrust(f, address(usdg), 10 * 365 days + 1, MIN_CHALLENGE);
     }
 
     function test_RevertWhen_DeployingWithBadProfile() public {
