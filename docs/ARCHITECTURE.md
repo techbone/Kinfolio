@@ -20,7 +20,7 @@ Existing onchain inheritance tools solve this by **escrowing** your assets in a 
 | P2 | **One contract per family.** | Each trust is its own EIP-1167 clone. Approvals go to *your* trust, not to a shared pool, so a bug in one trust cannot be used to drain another. |
 | P3 | **Zero admin.** | No owner, pauser, upgrader or fee switch on the factory or the implementation. Nobody can change the rules after deployment, including us. |
 | P4 | **Destinations are never caller-supplied.** | Tokens only move owner → trust (at settlement) and trust → a stored beneficiary. A phished signature can trigger settlement but cannot redirect funds. |
-| P5 | **Permissionless completion.** | `finalize`, `collect` and `release` can be called by anyone. If Kinfolio disappears, heirs can settle from a block explorer. |
+| P5 | **Permissionless completion.** | `finalize`, `collect` and `distribute` can be called by anyone. If Kinfolio disappears, heirs can settle from a block explorer. |
 | P6 | **Per-asset fault isolation.** | Stock tokens are pausable by the issuer. One paused ticker can never block the rest of an inheritance. |
 | P7 | **Raw-unit accounting (ERC-8056).** | Entitlements are computed in raw token units. Splits and reinvested dividends move the `uiMultiplier`, not balances, so locked tranches keep compounding with zero code. |
 | P8 | **No oracle on the money path.** | Chainlink prices feed the UI and view functions only. Settlement depends only on balances and time. |
@@ -40,7 +40,7 @@ flowchart LR
     W -. approve .-> K
     O -- checkIn / veto / edit --> K
     H((Heir)) -- startClaim --> K
-    A((Anyone)) -- finalize · collect · release --> K
+    A((Anyone)) -- finalize · collect · distribute --> K
     K -- transferFrom<br/>only after release --> W
     K -- vested tranches --> H
 
@@ -66,7 +66,7 @@ stateDiagram-v2
     Challenge --> Active: checkIn = veto (owner, one signature)
     Challenge --> Released: finalize (anyone, after challengeWindow)
     Active --> Closed: close (owner)
-    Released --> Released: collect · release (anyone)
+    Released --> Released: collect · distribute (anyone)
     Released --> [*]
     Closed --> [*]
 ```
@@ -90,7 +90,7 @@ Timing rules, all `block.timestamp`, with strict `>` boundaries:
 | `startClaim()` | any beneficiary | Active | Requires owner silence. → Challenge. |
 | `finalize()` | anyone | Challenge | Requires the window to have elapsed. → Released, sets `releasedAt`. |
 | `collect(asset)` / `collectAll()` | anyone | Released | Pulls `min(balance, allowance)` from the owner. Records the balance delta. Can be repeated for late-arriving tokens. A failing asset emits `CollectFailed` and is skipped. |
-| `release(grantId, asset)` / `releaseAll(grantId)` | anyone | Released | Sends vested, unreleased tokens to the grant's stored beneficiary. Failures are isolated per asset. |
+| `distribute(grantId, asset)` / `distributeAll(grantId)` | anyone | Released | Sends vested, unreleased tokens to the grant's stored beneficiary. Failures are isolated per asset. |
 | `transferGrant(grantId, to)` | that grant's beneficiary | Released | Lets an heir rotate a lost or blocked wallet without the owner. |
 
 Strangers have no lever on the claim path. Only the owner can stop a claim, and only time can complete one.
@@ -138,7 +138,7 @@ start             = max(releasedAt, g.unlockAt)
 vested(g, a)      = now <= start            ? 0
                   : g.vestDuration == 0     ? entitlement
                   : min(entitlement, entitlement * (now - start) / g.vestDuration)
-claimable(g, a)   = vested(g, a) - released[g][a]
+claimable(g, a)   = vested(g, a) - distributed[g][a]
 ```
 
 - `collected[a]` is measured as the balance delta of each pull, so non-standard tokens can't inflate it.
@@ -155,7 +155,7 @@ The full attack tree is in `SECURITY.md` (carried over from AfterKey and extende
 | I1 | No code path calls `transferFrom` unless `state == Released`. |
 | I2 | `transferFrom` is only ever `owner → trust`. |
 | I3 | Tokens leave the trust only to a stored grant beneficiary, or to the owner via `rescue` while Active. |
-| I4 | For every asset: `Σ released[g][a] ≤ collected[a] ≤` tokens the trust has received for that asset. |
+| I4 | For every asset: `Σ distributed[g][a] ≤ collected[a] ≤` tokens the trust has received for that asset. |
 | I5 | No grant ever receives more than its vested entitlement. |
 | I6 | Challenge → Active only by an owner signature; Challenge → Released only after the window. |
 | I7 | No privileged role exists on the factory or the implementation. |
@@ -249,8 +249,8 @@ All of these are roadmap items, not hidden gaps.
 | # | Milestone | Done when |
 |---|---|---|
 | M1 | Core trust + factory | State machine, grants and sleeves, unit tests green |
-| M2 | Settlement + hardening | collect/release/vesting; fuzz and invariant suites (I1–I7) green; fork test against live testnet tokens |
+| M2 | Settlement + hardening | collect/distribute/vesting; fuzz and invariant suites (I1–I7) green; fork test against live testnet tokens |
 | M3 | Testnet deploy | Demo-profile factory deployed and verified; scripted end-to-end lifecycle on chain 46630 |
-| M4 | Web app | Create → check-in → claim → veto → finalize → release, all in the browser |
+| M4 | Web app | Create → check-in → claim → veto → finalize → distribute, all in the browser |
 | M5 | Mainnet | Production-profile factory on chain 4663, Chainlink valuation live |
 | M6 | Submission | README, SECURITY.md, deck, demo video, HackQuest entry |
