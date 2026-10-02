@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Abi, ContractFunctionArgs, ContractFunctionName } from "viem";
 import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
@@ -33,12 +33,19 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
 
+  // After a confirmed tx, hold the button for a few seconds so stale reads
+  // can't invite a duplicate click before the page refreshes.
+  const [cooling, setCooling] = useState(false);
   useEffect(() => {
-    if (receipt.isSuccess) onConfirmed?.();
+    if (!receipt.isSuccess) return;
+    onConfirmed?.();
+    setCooling(true);
+    const id = setTimeout(() => setCooling(false), 6000);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receipt.isSuccess]);
 
-  const busy = write.isPending || receipt.isLoading;
+  const busy = write.isPending || receipt.isLoading || cooling;
   const failed = receipt.data?.status === "reverted";
   const error = write.error ?? receipt.error;
 
@@ -51,7 +58,13 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
         onClick={() => write.mutate(call as never)}
         className="w-full sm:w-auto"
       >
-        {write.isPending ? "Confirm in wallet…" : receipt.isLoading ? "Confirming…" : label}
+        {write.isPending
+          ? "Confirm in wallet…"
+          : receipt.isLoading
+            ? "Confirming…"
+            : cooling
+              ? "Done ✓"
+              : label}
       </Button>
       {write.data && (
         <a
