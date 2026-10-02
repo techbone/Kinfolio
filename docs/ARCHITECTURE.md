@@ -187,7 +187,10 @@ Known, accepted risks, all disclosed in the README:
 | AMZN | `0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02` | registry |
 | NFLX | `0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93` | registry |
 | Multicall3 | `0xcA11bde05977b3631167028862bE2a173976CA11` | same |
-| Chainlink | none (we deploy mocks) | live stock and USD feeds |
+| Chainlink | none (the app shows demo prices) | live stock and USD feeds |
+| PLTR | `0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0` | registry |
+| AMD | `0x71178BAc73cBeb415514eB542a8995b82669778d` | registry |
+| **Kinfolio factory** | `0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F` | same address |
 
 Stock-token facts the design relies on, each checked against the live implementation:
 
@@ -246,11 +249,11 @@ All of these are roadmap items, not hidden gaps.
 
 ## 12. Milestones
 
-| # | Milestone | Done when |
+| # | Milestone | Status |
 |---|---|---|
-| M1 | Core trust + factory | State machine, grants and sleeves, unit tests green |
-| M2 | Settlement + hardening | collect/distribute/vesting; fuzz and invariant suites (I1–I7) green; fork test against live testnet tokens |
-| M3 | Testnet deploy | Demo-profile factory deployed and verified; scripted end-to-end lifecycle on chain 46630 |
-| M4 | Web app | Create → check-in → claim → veto → finalize → distribute, all in the browser |
-| M5 | Mainnet | Production-profile factory on chain 4663, Chainlink valuation live |
+| M1 | Core trust + factory | ✅ State machine, grants and sleeves, unit tests |
+| M2 | Settlement + hardening | ✅ Collect/distribute/vesting; fuzz and invariant suites (I1–I7); fork test against live testnet tokens |
+| M3 | Testnet deploy | ✅ Demo-profile factory deployed and verified on chain 46630 |
+| M4 | Web app | ✅ Create → claim → veto → settle → collect → pay out, run in the browser with real wallets ([live](https://kinfolio-ten.vercel.app)) |
+| M5 | Mainnet | ✅ Production-profile factory on chain 4663, verified on Sourcify. Live Chainlink valuation in the app moves to the roadmap. |
 | M6 | Submission | README, SECURITY.md, deck, demo video, HackQuest entry |
