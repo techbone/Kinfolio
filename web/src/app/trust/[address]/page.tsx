@@ -134,7 +134,7 @@ function TrustView({ trust }: { trust: Address }) {
             href={explorerUrl("address", trust)}
             target="_blank"
             rel="noreferrer"
-            className="mt-1 inline-block font-mono text-xs text-muted hover:text-ink"
+            className="mt-1 inline-block break-all font-mono text-xs text-muted hover:text-ink"
           >
             {trust} ↗
           </a>

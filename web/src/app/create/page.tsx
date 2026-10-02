@@ -464,9 +464,9 @@ function HeirRows({ rows, onChange }: { rows: HeirRow[]; onChange: (rows: HeirRo
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <Field label="Unlocks">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <select
-                  className={inputClass}
+                  className={cx(inputClass, "min-w-0 flex-1 basis-44")}
                   value={r.unlock}
                   onChange={(e) => update(r.id, { unlock: e.target.value as HeirRow["unlock"] })}
                 >
@@ -483,7 +483,7 @@ function HeirRows({ rows, onChange }: { rows: HeirRow[]; onChange: (rows: HeirRo
                 {r.unlock === "date" && (
                   <input
                     type="date"
-                    className={inputClass}
+                    className={cx(inputClass, "min-w-0 flex-1 basis-36")}
                     value={r.date}
                     onChange={(e) => update(r.id, { date: e.target.value })}
                   />
@@ -491,9 +491,9 @@ function HeirRows({ rows, onChange }: { rows: HeirRow[]; onChange: (rows: HeirRo
               </div>
             </Field>
             <Field label="Paid">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <select
-                  className={inputClass}
+                  className={cx(inputClass, "min-w-0 flex-1 basis-36")}
                   value={r.paid}
                   onChange={(e) => update(r.id, { paid: e.target.value as HeirRow["paid"] })}
                 >

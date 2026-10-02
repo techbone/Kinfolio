@@ -4,21 +4,31 @@ import { ConnectButton } from "./connect-button";
 
 export function Header() {
   return (
-    <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
-      <Link href="/" className="flex items-center gap-2">
-        <Mark />
-        <span className="font-display text-xl tracking-tight">Kinfolio</span>
-      </Link>
-      <nav className="flex items-center gap-1 sm:gap-4">
-        <Link href="/trusts" className="hidden rounded-full px-3 py-2 text-sm text-muted hover:text-ink sm:block">
+    <>
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+        <Link href="/" className="flex items-center gap-2">
+          <Mark />
+          <span className="font-display text-xl tracking-tight">Kinfolio</span>
+        </Link>
+        <nav className="flex items-center gap-1 sm:gap-4">
+          <Link href="/trusts" className="hidden rounded-full px-3 py-2 text-sm text-muted hover:text-ink sm:block">
+            My trusts
+          </Link>
+          <Link href="/create" className="hidden rounded-full px-3 py-2 text-sm text-muted hover:text-ink sm:block">
+            Create
+          </Link>
+          <ConnectButton />
+        </nav>
+      </header>
+      <nav className="mx-auto -mt-2 mb-2 flex w-full max-w-5xl gap-5 border-b border-line px-4 pb-3 text-sm text-muted sm:hidden">
+        <Link href="/trusts" className="hover:text-ink">
           My trusts
         </Link>
-        <Link href="/create" className="hidden rounded-full px-3 py-2 text-sm text-muted hover:text-ink sm:block">
-          Create
+        <Link href="/create" className="hover:text-ink">
+          Create a trust
         </Link>
-        <ConnectButton />
       </nav>
-    </header>
+    </>
   );
 }
 
