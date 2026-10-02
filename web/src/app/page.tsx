@@ -73,7 +73,7 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-line pt-6 text-xs text-muted">
-        Kinfolio complements a will; it does not replace legal advice. Testnet demo on Robinhood Chain (46630).{" "}
+        Kinfolio complements a will; it does not replace legal advice. Contracts are live on Robinhood Chain mainnet; this app runs the testnet demo with short timers.{" "}
         <a className="underline" href="https://github.com/techbone/Kinfolio" target="_blank" rel="noreferrer">
           Source on GitHub
         </a>
