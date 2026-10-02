@@ -5,13 +5,16 @@ import { useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain
 
 import { defaultChain, getDeployment } from "@/lib/config";
 import { shortAddress } from "@/lib/format";
-import { useMounted } from "@/lib/hooks";
+import { errorMessage, useMounted } from "@/lib/hooks";
 import { Button } from "./ui";
 
 export function ConnectButton() {
   const mounted = useMounted();
   const { address, chainId, status } = useConnection();
-  const connectors = useConnectors();
+  const all = useConnectors();
+  // Prefer named EIP-6963 wallets; fall back to the generic injected provider.
+  const named = all.filter((c) => c.id !== "injected");
+  const connectors = named.length > 0 ? named : all;
   const connect = useConnect();
   const disconnect = useDisconnect();
   const switchChain = useSwitchChain();
@@ -21,9 +24,14 @@ export function ConnectButton() {
 
   if (status === "connected" && !getDeployment(chainId)) {
     return (
-      <Button variant="danger" onClick={() => switchChain.mutate({ chainId: defaultChain.id })}>
-        Switch to Robinhood Chain
-      </Button>
+      <div className="relative">
+        <Button variant="danger" onClick={() => switchChain.mutate({ chainId: defaultChain.id })}>
+          Switch to Robinhood Chain
+        </Button>
+        {switchChain.error && (
+          <p className="absolute right-0 mt-1 w-64 text-right text-xs text-danger">{errorMessage(switchChain.error)}</p>
+        )}
+      </div>
     );
   }
 
@@ -65,12 +73,15 @@ export function ConnectButton() {
         disabled={status === "connecting" || status === "reconnecting"}
         onClick={() =>
           connectors.length === 1
-            ? connect.mutate({ connector: connectors[0], chainId: defaultChain.id })
+            ? connect.mutate({ connector: connectors[0] })
             : setOpen((o) => !o)
         }
       >
         {status === "connecting" ? "Connecting…" : "Connect wallet"}
       </Button>
+      {connect.error && (
+        <p className="absolute right-0 mt-1 w-64 text-right text-xs text-danger">{errorMessage(connect.error)}</p>
+      )}
       {open && (
         <div className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-line bg-card p-1 shadow-lg">
           {connectors.map((connector) => (
@@ -78,7 +89,7 @@ export function ConnectButton() {
               key={connector.uid}
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-paper"
               onClick={() => {
-                connect.mutate({ connector, chainId: defaultChain.id });
+                connect.mutate({ connector });
                 setOpen(false);
               }}
             >

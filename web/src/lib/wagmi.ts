@@ -1,4 +1,4 @@
-import { createConfig, fallback, http } from "wagmi";
+import { createConfig, fallback, http, injected } from "wagmi";
 import { robinhoodTestnet } from "viem/chains";
 
 // The public RPC occasionally drops connections, so every read retries and an
@@ -10,6 +10,9 @@ const testnetRpcs = [
 
 export const wagmiConfig = createConfig({
   chains: [robinhoodTestnet],
+  // EIP-6963 discovers desktop extensions (MetaMask, Rabby…); this generic
+  // connector covers mobile in-app wallet browsers that only expose window.ethereum.
+  connectors: [injected()],
   transports: {
     [robinhoodTestnet.id]: fallback(
       testnetRpcs.map((url) => http(url, { retryCount: 4, retryDelay: 400 })),
