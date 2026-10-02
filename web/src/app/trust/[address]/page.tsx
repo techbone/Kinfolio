@@ -263,6 +263,8 @@ function TrustView({ trust }: { trust: Address }) {
             const mine = myGrantIds.includes(gi);
             const start = Math.max(t.releasedAt, g.unlockAt);
             const pending = assets.some((_, ai) => grantNum(gi, ai, 1) > 0n);
+            const owed = assets.some((_, ai) => grantNum(gi, ai, 0) > grantNum(gi, ai, 2));
+            const fullyPaid = !owed && assets.some((_, ai) => grantNum(gi, ai, 2) > 0n);
             return (
               <div
                 key={gi}
@@ -306,16 +308,19 @@ function TrustView({ trust }: { trust: Address }) {
                       })}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <TxButton
-                        variant={mine ? "primary" : "secondary"}
-                        label={mine ? "Withdraw what's ready" : "Pay out what's ready"}
-                        disabled={!me || !pending}
-                        call={{ address: trust, abi: trustAbi, functionName: "distributeAll", args: [BigInt(gi)] }}
-                        onConfirmed={refetch}
-                      />
-                      {!pending && (
+                      {fullyPaid ? (
+                        <Pill tone="forest">✓ Fully paid{mine ? " to you" : ""}</Pill>
+                      ) : pending ? (
+                        <TxButton
+                          variant={mine ? "primary" : "secondary"}
+                          label={mine ? "Withdraw what's ready" : "Pay out what's ready"}
+                          disabled={!me}
+                          call={{ address: trust, abi: trustAbi, functionName: "distributeAll", args: [BigInt(gi)] }}
+                          onConfirmed={refetch}
+                        />
+                      ) : (
                         <span className="text-xs text-muted">
-                          {now < start ? `Next unlock ${formatDate(start)}` : "Nothing ready right now"}
+                          {now < start ? `Next unlock ${formatDate(start)}` : "Paying out gradually; check back soon"}
                         </span>
                       )}
                     </div>
