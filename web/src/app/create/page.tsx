@@ -3,17 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { type Address, erc20Abi, isAddress, maxUint256, toHex } from "viem";
-import { useConnection, useReadContracts } from "wagmi";
+import { useChainId, useConnection, useReadContracts } from "wagmi";
 import { readContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 
 import { ConnectButton } from "@/components/connect-button";
 import { Button, Card, Field, Notice, Pill, SectionTitle, cx, inputClass } from "@/components/ui";
 import { factoryAbi, trustAbi } from "@/lib/abi";
-import { type Token, getDeployment } from "@/lib/config";
+import { type Deployment, type Token, getDeployment } from "@/lib/config";
 import { BPS, DURATION_UNITS, type DurationUnit, formatAmount, formatDuration, formatUsd } from "@/lib/format";
 import { errorMessage, useMounted } from "@/lib/hooks";
 import { saveLabels } from "@/lib/labels";
-import { wagmiConfig } from "@/lib/wagmi";
+import { usePrices } from "@/lib/prices";
+import { type ChainId, wagmiConfig } from "@/lib/wagmi";
 
 type Sleeve = 0 | 1; // Portfolio | Cash
 
@@ -78,46 +79,84 @@ function describe(r: HeirRow, what: string): string {
   return `${who} receives ${share} ${when}${how}.`;
 }
 
+// Testnet runs the lifecycle in minutes; mainnet starts from realistic family defaults.
+function defaultsFor(demo: boolean) {
+  return demo
+    ? {
+        portfolio: [
+          row({ name: "Spouse", percent: "40" }),
+          row({ name: "Child", percent: "30", unlock: "in", inValue: "5", inUnit: "minutes" }),
+          row({ name: "Child", percent: "30", unlock: "in", inValue: "10", inUnit: "minutes" }),
+        ],
+        allowance: [row({ name: "Parent", percent: "100", paid: "gradual", vestValue: "10", vestUnit: "minutes" })],
+        inactivity: { value: "2", unit: "minutes" } as Span,
+        challenge: { value: "1", unit: "minutes" } as Span,
+      }
+    : {
+        portfolio: [
+          row({ name: "Spouse", percent: "40" }),
+          row({ name: "Child", percent: "30", unlock: "in", inValue: "13", inUnit: "years" }),
+          row({ name: "Child", percent: "30", unlock: "in", inValue: "20", inUnit: "years" }),
+        ],
+        allowance: [row({ name: "Parent", percent: "100", paid: "gradual", vestValue: "3", vestUnit: "years" })],
+        inactivity: { value: "6", unit: "months" } as Span,
+        challenge: { value: "14", unit: "days" } as Span,
+      };
+}
+
 export default function CreatePage() {
   const mounted = useMounted();
-  const router = useRouter();
-  const { address: owner, chainId, status } = useConnection();
+  const { address: owner, status } = useConnection();
+  const chainId = useChainId() as ChainId;
   const deployment = getDeployment(chainId);
-  const demo = deployment?.profile !== "production";
+
+  if (!mounted) return null;
+
+  if (status !== "connected" || !owner || !deployment) {
+    return (
+      <div className="mx-auto mt-16 max-w-md text-center">
+        <h1 className="font-display text-3xl">Create a family trust</h1>
+        <p className="mt-3 text-muted">Connect the wallet that holds your stock tokens on Robinhood Chain.</p>
+        <div className="mt-6 flex justify-center">
+          <ConnectButton />
+        </div>
+      </div>
+    );
+  }
+
+  // Remount per network so defaults and token lists never leak across chains.
+  return <CreateForm key={chainId} chainId={chainId} deployment={deployment} owner={owner} />;
+}
+
+function CreateForm({ chainId, deployment, owner }: { chainId: ChainId; deployment: Deployment; owner: Address }) {
+  const router = useRouter();
+  const demo = deployment.profile !== "production";
+  const [defaults] = useState(() => defaultsFor(demo));
 
   const [selected, setSelected] = useState<Set<string> | null>(null);
-  const [portfolio, setPortfolio] = useState<HeirRow[]>(() => [
-    row({ name: "Spouse", percent: "40" }),
-    row({ name: "Child", percent: "30", unlock: "in", inValue: "5", inUnit: "minutes" }),
-    row({ name: "Child", percent: "30", unlock: "in", inValue: "10", inUnit: "minutes" }),
-  ]);
+  const [portfolio, setPortfolio] = useState<HeirRow[]>(defaults.portfolio);
   const [allowanceOn, setAllowanceOn] = useState(true);
-  const [allowance, setAllowance] = useState<HeirRow[]>(() => [
-    row({ name: "Parent", percent: "100", paid: "gradual", vestValue: "10", vestUnit: "minutes" }),
-  ]);
-  const [inactivity, setInactivity] = useState<Span>({ value: "2", unit: "minutes" });
-  const [challenge, setChallenge] = useState<Span>({ value: "1", unit: "minutes" });
+  const [allowance, setAllowance] = useState<HeirRow[]>(defaults.allowance);
+  const [inactivity, setInactivity] = useState<Span>(defaults.inactivity);
+  const [challenge, setChallenge] = useState<Span>(defaults.challenge);
   const [steps, setSteps] = useState<Step[]>([]);
   const [failure, setFailure] = useState<string>();
   const [created, setCreated] = useState<Address>();
 
-  const tokens = deployment?.tokens ?? [];
+  const tokens = deployment.tokens;
+  const prices = usePrices(chainId, tokens);
   const reads = useReadContracts({
     contracts: [
       ...tokens.map((t) => ({
         address: t.address,
         abi: erc20Abi,
         functionName: "balanceOf" as const,
-        args: [owner ?? "0x0000000000000000000000000000000000000000"] as const,
+        args: [owner] as const,
+        chainId,
       })),
-      ...(deployment
-        ? [
-            { address: deployment.implementation, abi: trustAbi, functionName: "MIN_INACTIVITY" as const },
-            { address: deployment.implementation, abi: trustAbi, functionName: "MIN_CHALLENGE" as const },
-          ]
-        : []),
+      { address: deployment.implementation, abi: trustAbi, functionName: "MIN_INACTIVITY" as const, chainId },
+      { address: deployment.implementation, abi: trustAbi, functionName: "MIN_CHALLENGE" as const, chainId },
     ],
-    query: { enabled: Boolean(owner && deployment) },
   });
 
   const balances = tokens.map((_, i) => (reads.data?.[i]?.result as bigint | undefined) ?? 0n);
@@ -136,7 +175,7 @@ export default function CreatePage() {
   const stocksChosen = tokens.filter((t) => t.kind === "stock" && chosen.has(t.address));
 
   const coveredValue = tokens.reduce(
-    (sum, t, i) => (chosen.has(t.address) ? sum + Number(balances[i]) / 10 ** t.decimals * t.demoPrice : sum),
+    (sum, t, i) => (chosen.has(t.address) ? sum + (Number(balances[i]) / 10 ** t.decimals) * prices.price(t) : sum),
     0,
   );
 
@@ -172,7 +211,7 @@ export default function CreatePage() {
   }
 
   async function create() {
-    if (!owner || !deployment || errors.length) return;
+    if (errors.length) return;
     setFailure(undefined);
     const assets = tokens.filter((t) => chosen.has(t.address));
     const plan: Step[] = [
@@ -203,6 +242,7 @@ export default function CreatePage() {
     try {
       const salt = toHex(crypto.getRandomValues(new Uint8Array(32)));
       const trust = await readContract(wagmiConfig, {
+        chainId,
         address: deployment.factory,
         abi: factoryAbi,
         functionName: "predictTrust",
@@ -211,12 +251,13 @@ export default function CreatePage() {
 
       mark("deploy", "active");
       const hash = await writeContract(wagmiConfig, {
+        chainId,
         address: deployment.factory,
         abi: factoryAbi,
         functionName: "createTrust",
         args: [config, salt],
       });
-      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash });
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash, chainId });
       if (receipt.status !== "success") throw new Error("Trust creation reverted");
       mark("deploy", "done");
       setCreated(trust);
@@ -229,12 +270,13 @@ export default function CreatePage() {
         current = t.address;
         mark(t.address, "active");
         const approval = await writeContract(wagmiConfig, {
+          chainId,
           address: t.address,
           abi: erc20Abi,
           functionName: "approve",
           args: [trust, maxUint256],
         });
-        await waitForTransactionReceipt(wagmiConfig, { hash: approval });
+        await waitForTransactionReceipt(wagmiConfig, { hash: approval, chainId });
         mark(t.address, "done");
       }
       router.push(`/trust/${trust}`);
@@ -242,20 +284,6 @@ export default function CreatePage() {
       mark(current, "failed");
       setFailure(errorMessage(error));
     }
-  }
-
-  if (!mounted) return null;
-
-  if (status !== "connected" || !deployment) {
-    return (
-      <div className="mx-auto mt-16 max-w-md text-center">
-        <h1 className="font-display text-3xl">Create a family trust</h1>
-        <p className="mt-3 text-muted">Connect the wallet that holds your stock tokens on Robinhood Chain.</p>
-        <div className="mt-6 flex justify-center">
-          <ConnectButton />
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -266,11 +294,13 @@ export default function CreatePage() {
           Nothing leaves your wallet. You&apos;ll sign one transaction to create your trust, then one approval per asset
           so it can act if you go silent.
         </p>
-        {demo && (
-          <div className="mt-3">
+        <div className="mt-3">
+          {demo ? (
             <Pill tone="warn">Testnet demo: timers can be minutes so you can see the whole lifecycle</Pill>
-          </div>
-        )}
+          ) : (
+            <Pill tone="brass">Mainnet: real assets. Heirs wait at least 30 days of silence plus a 7-day veto window</Pill>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -295,7 +325,7 @@ export default function CreatePage() {
         </div>
         <p className="mt-4 text-sm text-muted">
           Covered today: <span className="font-medium text-ink">{formatUsd(coveredValue)}</span>
-          {demo && " (demo prices)"}
+          {prices.source === "chainlink" ? " (Chainlink prices)" : " (demo prices)"}
         </p>
       </Card>
 

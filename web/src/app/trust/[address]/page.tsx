@@ -2,13 +2,13 @@
 
 import { useParams } from "next/navigation";
 import { type Address, erc20Abi, isAddress } from "viem";
-import { useConnection, useReadContract, useReadContracts } from "wagmi";
+import { useChainId, useConnection, useReadContracts, useSwitchChain } from "wagmi";
 
 import { ConnectButton } from "@/components/connect-button";
 import { TxButton } from "@/components/tx-button";
-import { Card, Notice, Pill, SectionTitle, cx } from "@/components/ui";
+import { Button, Card, Notice, Pill, SectionTitle, cx } from "@/components/ui";
 import { trustAbi } from "@/lib/abi";
-import { type Token, defaultChain, getDeployment, tokenOf } from "@/lib/config";
+import { type Token, explorerUrl, getDeployment, supportedChains, tokenOf } from "@/lib/config";
 import {
   formatAmount,
   formatCountdown,
@@ -18,8 +18,9 @@ import {
   formatUsd,
   shortAddress,
 } from "@/lib/format";
-import { explorerUrl, useMounted, useNow } from "@/lib/hooks";
+import { useMounted, useNow } from "@/lib/hooks";
 import { useLabels } from "@/lib/labels";
+import { usePrices } from "@/lib/prices";
 import type { ChainId } from "@/lib/wagmi";
 
 const STATE = ["Active", "Challenge", "Released", "Closed"] as const;
@@ -38,19 +39,30 @@ export default function TrustPage() {
 }
 
 function TrustView({ trust }: { trust: Address }) {
-  const { address: me, chainId } = useConnection();
-  const chain = (getDeployment(chainId) ? chainId : defaultChain.id) as ChainId;
+  const { address: me, chainId: walletChain, isConnected } = useConnection();
+  const selected = useChainId();
+  const switchChain = useSwitchChain();
   const now = useNow();
   const label = useLabels(trust);
 
-  const info = useReadContract({
-    address: trust,
-    abi: trustAbi,
-    functionName: "getTrust",
-    chainId: chain,
+  // A trust lives on one network; look on both so a shared link always works.
+  const lookup = useReadContracts({
+    contracts: supportedChains.map((c) => ({
+      address: trust,
+      abi: trustAbi,
+      functionName: "getTrust" as const,
+      chainId: c.id,
+    })),
     query: { refetchInterval: 4000 },
   });
-  const t = info.data;
+  const found = supportedChains
+    .map((c, i) => ({ chainId: c.id as ChainId, view: lookup.data?.[i]?.result }))
+    .filter((x) => x.view);
+  const match = found.find((x) => x.chainId === selected) ?? found[0];
+  const chain = (match?.chainId ?? selected) as ChainId;
+  const deployment = getDeployment(chain);
+  const t = match?.view;
+  const wrongChain = isConnected && walletChain !== chain;
 
   const assets = t?.assets ?? [];
   const grants = t?.grants ?? [];
@@ -84,19 +96,21 @@ function TrustView({ trust }: { trust: Address }) {
     query: { enabled: Boolean(t), refetchInterval: 4000 },
   });
 
+  const prices = usePrices(chain, tokens);
+
   const refetch = () => {
-    void info.refetch();
+    void lookup.refetch();
     void perAsset.refetch();
     void perGrant.refetch();
   };
 
-  if (info.isError)
-    return (
-      <Notice tone="danger">
-        Couldn&apos;t load a Kinfolio trust at {shortAddress(trust)} on {defaultChain.name}.
-      </Notice>
+  if (!t) {
+    return lookup.isLoading ? (
+      <p className="pt-10 text-muted">Loading trust…</p>
+    ) : (
+      <Notice tone="danger">No Kinfolio trust found at {shortAddress(trust)} on Robinhood Chain mainnet or testnet.</Notice>
     );
-  if (!t) return <p className="pt-10 text-muted">Loading trust…</p>;
+  }
 
   const state: StateName = STATE[t.state];
   const isOwner = me?.toLowerCase() === t.owner.toLowerCase();
@@ -118,7 +132,7 @@ function TrustView({ trust }: { trust: Address }) {
   const released = state === "Released";
   const value = rows.reduce((sum, r) => {
     const amount = released ? r.held : r.coverage;
-    return sum + (Number(amount) / 10 ** r.token.decimals) * r.token.demoPrice;
+    return sum + (Number(amount) / 10 ** r.token.decimals) * prices.price(r.token);
   }, 0);
   const uncollected = released ? rows.filter((r) => r.coverage > 0n) : [];
 
@@ -131,7 +145,7 @@ function TrustView({ trust }: { trust: Address }) {
             {isOwner ? "Your trust" : isHeir ? "A trust that names you" : "Kinfolio trust"}
           </h1>
           <a
-            href={explorerUrl("address", trust)}
+            href={explorerUrl(chain, "address", trust)}
             target="_blank"
             rel="noreferrer"
             className="mt-1 inline-block break-all font-mono text-xs text-muted hover:text-ink"
@@ -139,12 +153,24 @@ function TrustView({ trust }: { trust: Address }) {
             {trust} ↗
           </a>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone={deployment?.profile === "production" ? "brass" : "muted"}>{deployment?.label}</Pill>
           <Pill tone={stateTone[state]}>{state}</Pill>
           {isOwner && <Pill tone="forest">You are the owner</Pill>}
           {isHeir && <Pill tone="brass">You are an heir</Pill>}
         </div>
       </div>
+
+      {wrongChain && (
+        <Notice tone="warn">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>This trust lives on Robinhood Chain {deployment?.label}. Switch your wallet to act on it.</span>
+            <Button variant="secondary" onClick={() => switchChain.mutate({ chainId: chain })}>
+              Switch to {deployment?.label}
+            </Button>
+          </div>
+        </Notice>
+      )}
 
       {!me && (
         <Notice tone="forest">
@@ -167,6 +193,7 @@ function TrustView({ trust }: { trust: Address }) {
         isOwner={isOwner}
         isHeir={isHeir}
         trust={trust}
+        chain={chain}
         uncollected={uncollected.map((r) => r.token.symbol)}
         onDone={refetch}
       />
@@ -182,7 +209,9 @@ function TrustView({ trust }: { trust: Address }) {
           </SectionTitle>
           <p className="font-display text-2xl tabular">
             {formatUsd(value)}
-            <span className="ml-1 text-xs text-muted">demo prices</span>
+            <span className="ml-1 text-xs text-muted">
+              {prices.source === "chainlink" ? "Chainlink prices" : "demo prices"}
+            </span>
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -232,7 +261,7 @@ function TrustView({ trust }: { trust: Address }) {
                       </td>
                       <td className="py-3 text-right">
                         {isOwner && state === "Active" && r.allowance < r.balance && (
-                          <TxButton
+                          <TxButton chainId={chain}
                             variant="secondary"
                             label="Approve"
                             call={{
@@ -311,7 +340,7 @@ function TrustView({ trust }: { trust: Address }) {
                       {fullyPaid ? (
                         <Pill tone="forest">✓ Fully paid{mine ? " to you" : ""}</Pill>
                       ) : pending ? (
-                        <TxButton
+                        <TxButton chainId={chain}
                           variant={mine ? "primary" : "secondary"}
                           label={mine ? "Withdraw what's ready" : "Pay out what's ready"}
                           disabled={!me}
@@ -351,7 +380,7 @@ function TrustView({ trust }: { trust: Address }) {
         </dl>
         {isOwner && state === "Active" && (
           <div className="mt-5 border-t border-line pt-4">
-            <TxButton
+            <TxButton chainId={chain}
               variant="danger"
               label="Close this trust permanently"
               call={{ address: trust, abi: trustAbi, functionName: "close" }}
@@ -377,10 +406,11 @@ function StatusCard(props: {
   isOwner: boolean;
   isHeir: boolean;
   trust: Address;
+  chain: ChainId;
   uncollected: string[];
   onDone: () => void;
 }) {
-  const { state, now, trust, isOwner, isHeir, onDone } = props;
+  const { state, now, trust, chain, isOwner, isHeir, onDone } = props;
   const checkIn = { address: trust, abi: trustAbi, functionName: "checkIn" } as const;
 
   if (state === "Active") {
@@ -399,9 +429,9 @@ function StatusCard(props: {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {isOwner && <TxButton label="I'm alive — check in" call={checkIn} onConfirmed={onDone} />}
+            {isOwner && <TxButton chainId={chain} label="I'm alive — check in" call={checkIn} onConfirmed={onDone} />}
             {isHeir && (
-              <TxButton
+              <TxButton chainId={chain}
                 variant={open ? "primary" : "secondary"}
                 label="Open a claim"
                 disabled={!open}
@@ -433,9 +463,9 @@ function StatusCard(props: {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {isOwner && !done && <TxButton variant="danger" label="Veto — I'm alive" call={checkIn} onConfirmed={onDone} />}
+            {isOwner && !done && <TxButton chainId={chain} variant="danger" label="Veto — I'm alive" call={checkIn} onConfirmed={onDone} />}
             {(done || !isOwner) && (
-              <TxButton
+              <TxButton chainId={chain}
                 label="Settle trust"
                 disabled={!done}
                 call={{ address: trust, abi: trustAbi, functionName: "finalize" }}
@@ -462,7 +492,7 @@ function StatusCard(props: {
             </p>
           </div>
           {props.uncollected.length > 0 && (
-            <TxButton
+            <TxButton chainId={chain}
               label="Collect assets"
               batch
               call={{ address: trust, abi: trustAbi, functionName: "collectAll" }}

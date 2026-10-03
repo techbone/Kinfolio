@@ -9,9 +9,12 @@ import { useConnection, useReadContracts } from "wagmi";
 import { ConnectButton } from "@/components/connect-button";
 import { Button, ButtonLink, Card, Pill, SectionTitle, inputClass } from "@/components/ui";
 import { factoryAbi, trustAbi } from "@/lib/abi";
-import { defaultChain, getDeployment } from "@/lib/config";
+import { deployments, getDeployment, supportedChains } from "@/lib/config";
 import { formatCountdown, shortAddress } from "@/lib/format";
 import { useMounted, useNow } from "@/lib/hooks";
+import type { ChainId } from "@/lib/wagmi";
+
+type Entry = { address: Address; chainId: ChainId };
 
 const STATE = ["Active", "Challenge", "Released", "Closed"] as const;
 const tone = { Active: "forest", Challenge: "warn", Released: "brass", Closed: "muted" } as const;
@@ -19,19 +22,26 @@ const tone = { Active: "forest", Challenge: "warn", Released: "brass", Closed: "
 export default function TrustsPage() {
   const mounted = useMounted();
   const router = useRouter();
-  const { address: me, chainId } = useConnection();
-  const deployment = getDeployment(chainId) ?? getDeployment(defaultChain.id)!;
+  const { address: me } = useConnection();
   const [lookup, setLookup] = useState("");
 
+  // Trusts can live on either network: read both factories' indexes.
   const index = useReadContracts({
-    contracts: [
-      { address: deployment.factory, abi: factoryAbi, functionName: "trustsOf", args: [me!] },
-      { address: deployment.factory, abi: factoryAbi, functionName: "trustsFor", args: [me!] },
-    ],
+    contracts: supportedChains.flatMap((c) => [
+      { address: deployments[c.id].factory, abi: factoryAbi, functionName: "trustsOf" as const, args: [me!] as const, chainId: c.id },
+      { address: deployments[c.id].factory, abi: factoryAbi, functionName: "trustsFor" as const, args: [me!] as const, chainId: c.id },
+    ]),
     query: { enabled: Boolean(me), refetchInterval: 8000 },
   });
-  const owned = (index.data?.[0]?.result ?? []) as readonly Address[];
-  const named = (index.data?.[1]?.result ?? []) as readonly Address[];
+  const collect = (offset: number): Entry[] =>
+    supportedChains.flatMap((c, i) =>
+      ((index.data?.[i * 2 + offset]?.result ?? []) as readonly Address[]).map((address) => ({
+        address,
+        chainId: c.id as ChainId,
+      })),
+    );
+  const owned = collect(0);
+  const named = collect(1);
 
   if (!mounted) return null;
 
@@ -95,18 +105,18 @@ function TrustList({
 }: {
   title: string;
   empty: string;
-  trusts: readonly Address[];
+  trusts: Entry[];
   heir?: Address;
 }) {
   const now = useNow();
   const views = useReadContracts({
-    contracts: trusts.map((t) => ({ address: t, abi: trustAbi, functionName: "getTrust" as const })),
+    contracts: trusts.map((t) => ({ address: t.address, abi: trustAbi, functionName: "getTrust" as const, chainId: t.chainId })),
     query: { enabled: trusts.length > 0, refetchInterval: 8000 },
   });
 
   // The factory index is append-only: hide trusts that no longer name this heir.
   const items = trusts
-    .map((address, i) => ({ address, view: views.data?.[i]?.result }))
+    .map((entry, i) => ({ ...entry, view: views.data?.[i]?.result }))
     .filter(
       ({ view }) =>
         !heir || !view || view.grants.some((g) => g.beneficiary.toLowerCase() === heir.toLowerCase()),
@@ -119,11 +129,11 @@ function TrustList({
         <p className="text-sm text-muted">{empty}</p>
       ) : (
         <ul className="divide-y divide-line">
-          {items.map(({ address, view }) => {
+          {items.map(({ address, chainId, view }) => {
             const state = view ? STATE[view.state] : undefined;
             const deadline = view ? view.lastCheckIn + view.inactivityPeriod - now : 0;
             return (
-              <li key={address}>
+              <li key={`${chainId}-${address}`}>
                 <Link href={`/trust/${address}`} className="flex items-center justify-between gap-4 py-3 hover:opacity-80">
                   <div>
                     <p className="font-mono text-sm">{shortAddress(address)}</p>
@@ -135,7 +145,12 @@ function TrustList({
                       </p>
                     )}
                   </div>
-                  {state && <Pill tone={tone[state]}>{state}</Pill>}
+                  <div className="flex gap-2">
+                    <Pill tone={getDeployment(chainId)?.profile === "production" ? "brass" : "muted"}>
+                      {getDeployment(chainId)?.label}
+                    </Pill>
+                    {state && <Pill tone={tone[state]}>{state}</Pill>}
+                  </div>
                 </Link>
               </li>
             );
