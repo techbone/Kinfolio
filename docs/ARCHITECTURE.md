@@ -255,5 +255,5 @@ All of these are roadmap items, not hidden gaps.
 | M2 | Settlement + hardening | ✅ Collect/distribute/vesting; fuzz and invariant suites (I1–I7); fork test against live testnet tokens |
 | M3 | Testnet deploy | ✅ Demo-profile factory deployed and verified on chain 46630 |
 | M4 | Web app | ✅ Create → claim → veto → settle → collect → pay out, run in the browser with real wallets ([live](https://kinfolio-ten.vercel.app)) |
-| M5 | Mainnet | ✅ Production-profile factory on chain 4663, verified on Sourcify. Live Chainlink valuation in the app moves to the roadmap. |
+| M5 | Mainnet | ✅ Production-profile factory on chain 4663, verified on Sourcify. The app has a Mainnet/Testnet switch, with live Chainlink valuation on mainnet. |
 | M6 | Submission | README, SECURITY.md, deck, demo video, HackQuest entry |

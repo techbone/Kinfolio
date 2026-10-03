@@ -4,7 +4,7 @@
 
 Name heirs for your Robinhood Chain stock tokens and USDG, decide who gets what, when and how fast, and keep every token in your own wallet while you're alive.
 
-**[Live app](https://kinfolio-ten.vercel.app)** · **[Mainnet factory](https://robinhoodchain.blockscout.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · **[Testnet factory](https://explorer.testnet.chain.robinhood.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md)
+**[Live app](https://kinfolio-ten.vercel.app)** (Mainnet / Testnet switch) · **[Mainnet factory](https://robinhoodchain.blockscout.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · **[Testnet factory](https://explorer.testnet.chain.robinhood.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md)
 
 Built for **Arbitrum Open House Singapore** on **Robinhood Chain**.
 
@@ -21,6 +21,7 @@ The Robinhood app lets you name transfer-on-death beneficiaries. The moment you 
 - **A USDG allowance.** Pay USDG as a steady monthly-style stream, separate from the stock split. *Stocks for the long term, dollars for the monthly bills.*
 - **One-tap veto.** If an heir opens a claim while you're alive, a single signature cancels it and resets your clock.
 - **Zero admin keys.** No pause, no upgrade, no fee switch. Nobody can change the rules, including us.
+- **Live on mainnet, with a testnet demo.** Use real stock tokens on mainnet, priced live by **Chainlink**, or flip to Testnet to run the whole lifecycle in minutes.
 
 ## How it works
 
@@ -60,7 +61,7 @@ stateDiagram-v2
 |---|---|
 | **Smart contract quality** | 75 unit and fuzz tests, 5 invariants over 16k random calls each, and fork tests of the **deployed** contracts on testnet and mainnet with real Robinhood tokens. **99.6% line and 97.9% branch coverage.** `forge build` and `forge lint` are clean. No admin keys. Full [threat model](docs/SECURITY.md). |
 | **Product-market fit** | Every self-custody stock-token holder loses the transfer-on-death protection Robinhood offers inside its app. Kinfolio restores it without asking them to stop trading. It's especially relevant to cross-border families, whose heirs would otherwise have to prove an inheritance to a foreign broker. |
-| **Innovation** | Allowance-based (non-custodial) inheritance; an isolated contract per family; trust-style tranches and vesting; a USDG cash sleeve; accounting that tracks corporate actions automatically. |
+| **Innovation** | Allowance-based (non-custodial) inheritance; an isolated contract per family; trust-style tranches and vesting; a USDG cash sleeve; accounting that tracks corporate actions automatically (mainnet NVDA's multiplier is already above 1.0 from reinvested dividends). Portfolios are valued live through Chainlink's Robinhood Chain feeds. |
 | **Real problem solving** | Heirs never need the owner's keys, a lawyer or Kinfolio itself: every settlement step can be called from a block explorer. |
 | **USDG integration** | USDG is a first-class **cash sleeve** with its own heirs and streaming schedule, separate from the stock split. |
 
@@ -116,7 +117,9 @@ npm run dev       # http://localhost:3000
 npm run abi       # regenerate ABIs after `forge build`
 ```
 
-Optional: set `NEXT_PUBLIC_RPC_TESTNET` to a private RPC URL. The public RPC is used as a fallback.
+Optional: set `NEXT_PUBLIC_RPC_MAINNET` and/or `NEXT_PUBLIC_RPC_TESTNET` to private RPC URLs. The public RPCs are used as a fallback.
+
+The app defaults to **Testnet**, so anyone can try the full lifecycle in minutes. Switch to **Mainnet** in the header to use real assets. Mainnet covers TSLA, NVDA, AAPL, MSFT, AMZN, GOOGL, META, PLTR, AMD, COIN, SPY, QQQ and USDG, each priced by Chainlink.
 
 ## Repository layout
 
@@ -134,7 +137,6 @@ docs/               ARCHITECTURE.md · SECURITY.md
 
 - **Keeper and notifications:** automatic settlement on time, plus email and push reminders before the deadline.
 - **Grant-change timelock** and change alerts, as protection against a compromised owner key.
-- **Live Chainlink valuation** in the app on mainnet. Testnet has no feeds, so it shows demo prices.
 - **One-transaction setup** with EIP-2612 `permit` across all covered assets.
 - **Encrypted letters to heirs** and a printable "inheritance letter" with the trust address.
 
