@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import type { Abi, ContractFunctionArgs, ContractFunctionName } from "viem";
 import { useConnection, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
-import { errorMessage, explorerUrl } from "@/lib/hooks";
+import { explorerUrl } from "@/lib/config";
+import { errorMessage } from "@/lib/hooks";
+import type { ChainId } from "@/lib/wagmi";
 import { Button } from "./ui";
 
 type Call<abi extends Abi, fn extends ContractFunctionName<abi, "nonpayable">> = {
@@ -26,6 +28,7 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
   onConfirmed,
   className,
   batch,
+  chainId,
 }: {
   call: Call<abi, fn>;
   label: string;
@@ -34,9 +37,12 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
   onConfirmed?: () => void;
   className?: string;
   batch?: boolean;
+  /** The chain this call must go to; the button locks if the wallet is elsewhere. */
+  chainId: ChainId;
 }) {
-  const { address: account } = useConnection();
-  const client = usePublicClient();
+  const { address: account, chainId: walletChain, isConnected } = useConnection();
+  const client = usePublicClient({ chainId });
+  const wrongChain = isConnected && walletChain !== chainId;
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
 
@@ -64,7 +70,7 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
       }
     }
     // The generic call shape is checked at the call site; wagmi's overloads can't infer it here.
-    write.mutate({ ...call, gas } as never);
+    write.mutate({ ...call, gas, chainId } as never);
   }
   const failed = receipt.data?.status === "reverted";
   const error = write.error ?? receipt.error;
@@ -73,7 +79,7 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
     <div className={className}>
       <Button
         variant={variant}
-        disabled={disabled || busy}
+        disabled={disabled || busy || wrongChain}
         onClick={() => void send()}
         className="w-full sm:w-auto"
       >
@@ -87,7 +93,7 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
       </Button>
       {write.data && (
         <a
-          href={explorerUrl("tx", write.data)}
+          href={explorerUrl(chainId, "tx", write.data)}
           target="_blank"
           rel="noreferrer"
           className="mt-1 block text-xs text-muted underline-offset-2 hover:underline"

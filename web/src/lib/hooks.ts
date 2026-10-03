@@ -26,6 +26,3 @@ export function errorMessage(error: unknown): string {
   return "Something went wrong";
 }
 
-export function explorerUrl(kind: "tx" | "address", value: string): string {
-  return `https://explorer.testnet.chain.robinhood.com/${kind}/${value}`;
-}

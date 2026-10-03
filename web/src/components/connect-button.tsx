@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
+import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
 
 import { defaultChain, getDeployment } from "@/lib/config";
 import { shortAddress } from "@/lib/format";
@@ -18,6 +18,8 @@ export function ConnectButton() {
   const connect = useConnect();
   const disconnect = useDisconnect();
   const switchChain = useSwitchChain();
+  const selected = useChainId();
+  const target = getDeployment(selected) ? selected : defaultChain.id;
   const [open, setOpen] = useState(false);
 
   if (!mounted) return <Button variant="secondary">Connect wallet</Button>;
@@ -25,7 +27,7 @@ export function ConnectButton() {
   if (status === "connected" && !getDeployment(chainId)) {
     return (
       <div className="relative">
-        <Button variant="danger" onClick={() => switchChain.mutate({ chainId: defaultChain.id })}>
+        <Button variant="danger" onClick={() => switchChain.mutate({ chainId: target })}>
           Switch to Robinhood Chain
         </Button>
         {switchChain.error && (
