@@ -4,7 +4,7 @@
 
 Name heirs for your Robinhood Chain stock tokens and USDG, decide who gets what, when and how fast, and keep every token in your own wallet while you're alive.
 
-**[Live app](https://kinfolio-ten.vercel.app)** (Mainnet / Testnet switch) · **[Mainnet factory](https://robinhoodchain.blockscout.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · **[Testnet factory](https://explorer.testnet.chain.robinhood.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md)
+**[▶ Demo video](https://youtu.be/9TGgFGu0Alg)** · **[Live app](https://kinfolio-ten.vercel.app)** (Mainnet / Testnet switch) · **[Mainnet factory](https://robinhoodchain.blockscout.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · **[Testnet factory](https://explorer.testnet.chain.robinhood.com/address/0xbdEF1e8cb7DB12a81d6C32f5E57D2ccE41b4A90F)** · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md)
 
 Built for **Arbitrum Open House Singapore** on **Robinhood Chain**.
 
