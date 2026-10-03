@@ -94,7 +94,7 @@ How Kinfolio handles them:
 
 - **Raw-unit accounting.** All entitlements are in raw token units. Splits and reinvested dividends change `uiMultiplier`, not balances, so a locked tranche keeps its full share count through corporate actions with no code path involved (`test_SplitDuringLockupReachesHeirInFull`).
 - **Balance-delta collection.** `collected` is the trust's measured balance change, not the requested amount, so non-standard tokens can't inflate entitlements (`test_Collect_CountsBalanceDeltaNotRequestedAmount`).
-- **Live verification.** `test_Fork_FullLifecycleWithRealStockTokens` runs the full lifecycle against the real testnet TSLA, AMZN and USDG contracts.
+- **Live verification.** `test_Fork_FullLifecycleWithRealStockTokens` runs the full lifecycle through the deployed factory, against the real TSLA, AMZN and USDG contracts on both testnet and mainnet.
 
 ## 5. Testing methodology
 
@@ -105,7 +105,7 @@ How Kinfolio handles them:
 | `KinfolioFactory.t.sol` | 12 | Deterministic addresses, salt scoping, index, initializer lockdown, deployment profiles |
 | `Vesting.t.sol` | 7 | 5 fuzzed properties × 1,000 runs, plus edge cases |
 | `invariant/KinfolioInvariant.t.sol` | 5 invariants | 256 runs × 64 random calls each |
-| `fork/RobinhoodTestnet.t.sol` | 1 | Live Robinhood Chain testnet tokens |
+| `fork/RobinhoodFork.t.sol` | 4 | The **deployed** factories on testnet and mainnet: deployment profile, plus the full lifecycle with each chain's real stock tokens and USDG |
 
 **Coverage:** 99.6% of lines, 99.7% of statements, 97.9% of branches and 100% of functions in `src/`. The one line reported as uncovered is the constructor's invalid-profile revert. `test_RevertWhen_ImplementationDeployedWithBadProfile` exercises it, but Foundry doesn't attribute constructor reverts.
 
@@ -134,4 +134,5 @@ One inline disable remains: `arbitrary-send-erc20` on the single `safeTransferFr
 - **The factory's heir index is append-only.** Readers must confirm current grants on the trust; the web app does.
 - **Rounding dust.** At most one wei per grant per asset stays in the trust.
 - **Tokens sent directly to a released trust** are not attributed to heirs.
+- **Batch calls and gas estimation.** `collectAll` and `distributeAll` catch per-asset failures. If a transaction were sent with too little gas, an inner call could run out of gas and be recorded as `CollectFailed`/`DistributeFailed` instead of reverting the whole transaction. Funds stay safe and the asset can be retried individually. The web app sets an explicit 1.5× gas limit on these calls, and the demo trust's history shows zero failure events.
 - **Covered assets must be chosen by the owner.** A malicious token the owner adds can only grief its own collection, never other assets.

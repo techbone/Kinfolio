@@ -58,7 +58,7 @@ stateDiagram-v2
 
 | Criterion | Evidence |
 |---|---|
-| **Smart contract quality** | 75 unit and fuzz tests, 5 invariants over 16k random calls each, and a fork test against live Robinhood tokens. **99.6% line and 97.9% branch coverage.** `forge build` and `forge lint` are clean. No admin keys. Full [threat model](docs/SECURITY.md). |
+| **Smart contract quality** | 75 unit and fuzz tests, 5 invariants over 16k random calls each, and fork tests of the **deployed** contracts on testnet and mainnet with real Robinhood tokens. **99.6% line and 97.9% branch coverage.** `forge build` and `forge lint` are clean. No admin keys. Full [threat model](docs/SECURITY.md). |
 | **Product-market fit** | Every self-custody stock-token holder loses the transfer-on-death protection Robinhood offers inside its app. Kinfolio restores it without asking them to stop trading. It's especially relevant to cross-border families, whose heirs would otherwise have to prove an inheritance to a foreign broker. |
 | **Innovation** | Allowance-based (non-custodial) inheritance; an isolated contract per family; trust-style tranches and vesting; a USDG cash sleeve; accounting that tracks corporate actions automatically. |
 | **Real problem solving** | Heirs never need the owner's keys, a lawyer or Kinfolio itself: every settlement step can be called from a block explorer. |
@@ -101,7 +101,8 @@ See **[docs/SECURITY.md](docs/SECURITY.md)** for invariants I1–I7 and the test
 
 ```bash
 cd contracts
-forge test                                 # everything, including the live testnet fork test
+forge test                                 # everything, including fork tests of the deployed contracts
+forge test --mp "test/fork/*" -j 1         # fork tests only, one at a time (public RPCs rate-limit)
 forge test --no-match-path "test/fork/*"   # offline
 forge coverage --no-match-path "test/fork/*" --no-match-coverage "test|script"
 ```
