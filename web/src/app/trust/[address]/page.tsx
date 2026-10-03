@@ -315,6 +315,7 @@ function TrustView({ trust }: { trust: Address }) {
                           variant={mine ? "primary" : "secondary"}
                           label={mine ? "Withdraw what's ready" : "Pay out what's ready"}
                           disabled={!me}
+                          batch
                           call={{ address: trust, abi: trustAbi, functionName: "distributeAll", args: [BigInt(gi)] }}
                           onConfirmed={refetch}
                         />
@@ -463,6 +464,7 @@ function StatusCard(props: {
           {props.uncollected.length > 0 && (
             <TxButton
               label="Collect assets"
+              batch
               call={{ address: trust, abi: trustAbi, functionName: "collectAll" }}
               onConfirmed={onDone}
             />

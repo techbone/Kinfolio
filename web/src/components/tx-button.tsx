@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Abi, ContractFunctionArgs, ContractFunctionName } from "viem";
-import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useConnection, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 import { errorMessage, explorerUrl } from "@/lib/hooks";
 import { Button } from "./ui";
@@ -14,7 +14,10 @@ type Call<abi extends Abi, fn extends ContractFunctionName<abi, "nonpayable">> =
   args?: ContractFunctionArgs<abi, "nonpayable", fn>;
 };
 
-/** One-click contract write with wallet → confirming → done states. */
+/** One-click contract write with wallet → confirming → done states.
+ * `batch` sets an explicit 1.5x gas limit: collectAll/distributeAll isolate
+ * per-asset failures with try/catch, so an under-padded wallet estimate would
+ * make inner calls fail quietly instead of reverting. */
 export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "nonpayable">>({
   call,
   label,
@@ -22,6 +25,7 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
   disabled,
   onConfirmed,
   className,
+  batch,
 }: {
   call: Call<abi, fn>;
   label: string;
@@ -29,7 +33,10 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
   disabled?: boolean;
   onConfirmed?: () => void;
   className?: string;
+  batch?: boolean;
 }) {
+  const { address: account } = useConnection();
+  const client = usePublicClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
 
@@ -46,6 +53,19 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
   }, [receipt.isSuccess]);
 
   const busy = write.isPending || receipt.isLoading || cooling;
+
+  async function send() {
+    let gas: bigint | undefined;
+    if (batch && client && account) {
+      try {
+        gas = ((await client.estimateContractGas({ ...call, account } as never)) * 3n) / 2n;
+      } catch {
+        // let the wallet estimate and surface the revert reason itself
+      }
+    }
+    // The generic call shape is checked at the call site; wagmi's overloads can't infer it here.
+    write.mutate({ ...call, gas } as never);
+  }
   const failed = receipt.data?.status === "reverted";
   const error = write.error ?? receipt.error;
 
@@ -54,8 +74,7 @@ export function TxButton<abi extends Abi, fn extends ContractFunctionName<abi, "
       <Button
         variant={variant}
         disabled={disabled || busy}
-        // The generic call shape is checked at the call site; wagmi's overloads can't infer it here.
-        onClick={() => write.mutate(call as never)}
+        onClick={() => void send()}
         className="w-full sm:w-auto"
       >
         {write.isPending
