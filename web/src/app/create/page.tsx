@@ -207,7 +207,8 @@ function CreateForm({ chainId, deployment, owner }: { chainId: ChainId; deployme
       out.push(`Inactivity period must be at least ${formatDuration(minInactivity)}.`);
     if (minChallenge && seconds(challenge) < minChallenge)
       out.push(`Challenge window must be at least ${formatDuration(minChallenge)}.`);
-    return out;
+    // Two tranches for the same heir can produce the same message; show it once.
+    return [...new Set(out)];
   }
 
   async function create() {
@@ -400,8 +401,8 @@ function CreateForm({ chainId, deployment, owner }: { chainId: ChainId; deployme
 
         {errors.length > 0 && (
           <ul className="mt-4 space-y-1 text-sm text-danger">
-            {errors.map((e) => (
-              <li key={e}>• {e}</li>
+            {errors.map((e, i) => (
+              <li key={`${i}-${e}`}>• {e}</li>
             ))}
           </ul>
         )}
